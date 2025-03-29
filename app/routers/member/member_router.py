@@ -34,7 +34,7 @@ async def member_create(
     member_service: MemberService = Depends(get_member_service),
 ):
 
-    member_service.create_member(
+    result = member_service.create_member(
         username=username,
         password=password,
         # email=email,

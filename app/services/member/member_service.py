@@ -1,5 +1,8 @@
 import re
 from fastapi import HTTPException
+from app.models.member import Member  # Member 모델 가져오기
+from app.db.connetion import session  # SQLAlchemy 세션 가져오기
+from sqlalchemy.exc import IntegrityError
 
 
 class MemberService:
@@ -16,19 +19,35 @@ class MemberService:
         self,
         username: str,
         password: str,
-        # email: str,
         user_type: str,
         master_key: str = None,
     ):
-
+        # 회원가입 유효성 검사
         self.validate_registration(
-            username=username, password=password, user_type=user_type, master_key=None
+            username=username,
+            password=password,
+            user_type=user_type,
+            master_key=master_key,
         )
 
         # 회원 생성 로직
-        """회원 생성 로직 (DB에 저장하는 부분은 생략)"""
-        # DB에 회원 정보를 저장하는 로직을 여기에 추가
-        pass
+        new_member = Member(
+            username=username,
+            password=password,  # 비밀번호는 해싱하여 저장하는 것이 좋음
+            user_type=user_type,
+        )
+
+        try:
+            # 데이터베이스에 회원 정보 저장
+            with session() as db_session:
+                db_session.add(new_member)
+                db_session.commit()
+        except IntegrityError:
+            raise HTTPException(
+                status_code=400, detail="이미 존재하는 사용자 이름입니다."
+            )
+
+        return {"message": "회원이 성공적으로 생성되었습니다."}
 
     def validate_registration(
         self,
