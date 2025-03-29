@@ -34,7 +34,7 @@ YSJ 퀴즈 시스템은 **FastAPI**와 **PostgreSQL**을 기반으로 구축되�
 1. 저장소를 클론합니다:
 
    ```bash
-   git clone https://github.com/your-repo/ysjquiz.git
+   [git clone https://github.com/your-repo/ysjquiz.git](https://github.com/sjgopromer2025/ysj_Quiz.git)
    cd ysjquiz
    ```
 
