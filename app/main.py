@@ -1,10 +1,18 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from app.routers import router as api_router  # 중앙 관리 라우터
 from app.db.connection import engine, Base  # DB 연결
-from app.utils.jwt_utils import decode_access_token
+from app.middlewares import (
+    add_user_to_request,
+    restrict_non_authenticated_users,
+    restrict_authenticated_users,
+    restrict_non_admin_users,
+)
 import logging
+import secrets  # 안전한 비밀 키 생성을 위한 모듈
+import os  # 환경 변수에서 비밀 키 가져오기 위한 모듈
 
 
 # SQLAlchemy 엔진 로그 수준 설정
@@ -21,39 +29,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(docs_url="/documentation", redoc_url=None, lifespan=lifespan)
 
-
-@app.middleware("http")
-async def add_user_to_request(request: Request, call_next):
-    """JWT를 검증하고 사용자 정보를 요청에 추가"""
-    token = request.cookies.get("access_token")
-    if token:
-        user = decode_access_token(token)
-        request.state.user = user
-    else:
-        request.state.user = None
-
-    response = await call_next(request)
-    return response
-
-
-@app.middleware("http")
-async def restrict_authenticated_users(request: Request, call_next):
-    """로그인된 사용자가 특정 경로에 접근하지 못하도록 제한"""
-    token = request.cookies.get("access_token")
-    if token:
-        user = decode_access_token(token)
-        request.state.user = user
-    else:
-        request.state.user = None
-
-    restricted_paths = ["/member/register", "/member/create"]
-    if request.url.path in restricted_paths:
-        if request.state.user:  # 로그인된 사용자라면
-            return RedirectResponse(url="/", status_code=302)
-
-    response = await call_next(request)
-    return response
-
+# 미들웨어 등록
+app.middleware("http")(add_user_to_request)
+app.middleware("http")(restrict_non_authenticated_users)
+app.middleware("http")(restrict_authenticated_users)
+app.middleware("http")(restrict_non_admin_users)
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,6 +41,16 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# 환경 변수에서 비밀 키 가져오기 (없으면 기본값 사용)
+SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex(32))
+
+# SessionMiddleware 추가
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    session_cookie="quiz_session",  # 세션 쿠키 이름 설정 (선택 사항)
 )
 
 app.include_router(api_router)

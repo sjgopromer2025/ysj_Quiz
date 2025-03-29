@@ -1,9 +1,10 @@
+import random
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
 from typing import List
 from app.models.quiz import Quiz, Question, Option
-from app.schemas.quiz import QuizCreate, QuestionCreate, QuestionUpdate
+from app.schemas.quiz import QuizCreate, QuestionCreate, QuestionUpdate, QuizResponse
 
 
 class QuizService:
@@ -80,20 +81,57 @@ class QuizService:
             db.rollback()
             raise e
 
-    def get_quizzes_pagination(
-        self, page: int, page_size: int, db: Session
-    ) -> List[Quiz]:
-        """퀴즈 목록 조회"""
-        offset = (page - 1) * page_size
-        quizzes = db.query(Quiz).offset(offset).limit(page_size).all()
-        return quizzes
-
-    def get_quiz_detail(self, quiz_id: int, db: Session) -> Quiz:
-        """퀴즈 상세 조회"""
+    def get_quiz_detail(self, quiz_id: int, db: Session):
+        """퀴즈 상세 정보 조회 (문제 랜덤 섞기)"""
         quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
         if not quiz:
-            raise ValueError("퀴즈를 찾을 수 없습니다.")
-        return quiz
+            raise ValueError("해당 ID의 퀴즈를 찾을 수 없습니다.")
+
+        # 문제와 선택지 구성
+        questions = questions = self.setting_questions(quiz.questions)
+
+        return QuizResponse(
+            id=quiz.id,
+            title=quiz.title,
+            questions=questions,
+        )
+
+    # # 퀴즈 상세 정보 조회 (문제 랜덤 섞기)
+    def get_quiz_detail_suffle(self, quiz_id: int, db: Session):
+        """퀴즈 상세 정보 조회 (문제 랜덤 섞기)"""
+        quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+        if not quiz:
+            raise ValueError("해당 ID의 퀴즈를 찾을 수 없습니다.")
+
+        # 문제와 선택지 구성
+        questions = self.setting_questions(quiz.questions)
+        # 문제를 랜덤으로 섞기
+        random.shuffle(questions)
+
+        return QuizResponse(
+            id=quiz.id,
+            title=quiz.title,
+            questions=questions,
+        )
+
+    def setting_questions(self, questions: dict):
+        # 문제와 선택지 구성
+        questions = [
+            {
+                "id": question.id,
+                "text": question.text,
+                "options": [
+                    {
+                        "id": option.id,
+                        "text": option.text,
+                        "is_correct": option.is_correct,
+                    }
+                    for option in question.options
+                ],
+            }
+            for question in questions
+        ]
+        return questions
 
     def attempt_quiz(self, quiz_id: UUID, db: Session) -> Quiz:
         """퀴즈 응시"""
@@ -160,26 +198,64 @@ class QuizService:
             db.rollback()
             raise e
 
-    def delete_quiz(self, quiz_id: int, db: Session) -> None:
-        """퀴즈 삭제 및 하위 문제 포함 전부 삭제"""
-        try:
-            quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
-            if not quiz:
-                raise ValueError("퀴즈를 찾을 수 없습니다.")
+    def generate_quiz_state(self, quiz_id: int, user: dict, db: Session):
+        """퀴즈 상태 생성 (문제 구성 및 순서 유지)"""
+        quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+        if not quiz:
+            raise ValueError("퀴즈를 찾을 수 없습니다.")
 
-            # 관련된 문제와 선택지 삭제
-            db.query(Option).filter(
-                Option.question_id.in_(
-                    db.query(Question.id).filter(Question.quiz_id == quiz_id)
-                )
-            ).delete(synchronize_session=False)
-            db.query(Question).filter(Question.quiz_id == quiz_id).delete(
-                synchronize_session=False
+        # Fetch questions and options
+        questions = [
+            {
+                "id": question.id,
+                "text": question.text,
+                "options": [
+                    {"id": option.id, "text": option.text}
+                    for option in question.options
+                ],
+            }
+            for question in quiz.questions
+        ]
+
+        return {
+            "quiz_title": quiz.title,
+            "questions": questions,
+        }
+
+    def submit_quiz_answers(
+        self, quiz_id: int, answers: List[dict], user: dict, db: Session
+    ):
+        """퀴즈 답안 제출 및 채점"""
+        quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+        if not quiz:
+            raise ValueError("퀴즈를 찾을 수 없습니다.")
+
+        # Validate answers and calculate score
+        correct_count = 0
+        total_questions = len(answers)
+
+        for answer in answers:
+            question = (
+                db.query(Question).filter(Question.id == answer["question_id"]).first()
             )
+            if not question:
+                raise ValueError(f"문제를 찾을 수 없습니다: {answer['question_id']}")
 
-            # 퀴즈 삭제
-            db.delete(quiz)
-            db.commit()
-        except SQLAlchemyError as e:
-            db.rollback()
-            raise e
+            correct_option = (
+                db.query(Option)
+                .filter(Option.question_id == question.id, Option.is_correct == True)
+                .first()
+            )
+            if correct_option and correct_option.id == answer["selected_option_id"]:
+                correct_count += 1
+
+        # Save submission to database (optional)
+        submission = {
+            "user_id": user.get("id"),
+            "quiz_id": quiz_id,
+            "correct_count": correct_count,
+            "total_questions": total_questions,
+            "score": (correct_count / total_questions) * 100,
+        }
+
+        return submission

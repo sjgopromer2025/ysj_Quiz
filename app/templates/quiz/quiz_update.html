@@ -25,7 +25,11 @@
           class="form-control"
           value="{{ quiz.title }}"
         />
-        <button id="updateQuiz" class="btn btn-success mt-2">
+        <button
+          id="updateQuiz"
+          class="btn btn-success mt-2"
+          onclick="updateQuiz()"
+        >
           퀴즈 제목 수정
         </button>
       </div>
@@ -56,6 +60,7 @@
                 <button
                   class="btn {% if option.is_correct %}btn-success{% else %}btn-outline-secondary{% endif %} mark-correct"
                   type="button"
+                  onclick="toggleCorrect(this)"
                 >
                   {% if option.is_correct %}정답 (선택됨){% else %}정답{% endif
                   %}
@@ -66,18 +71,28 @@
             <button
               class="btn btn-secondary addOption"
               data-question-id="{{ question.id }}"
+              onclick="addOption('{{ question.id }}')"
             >
               선택지 추가
             </button>
             <button
+              class="btn btn-warning deleteOptions mt-2"
+              data-question-id="{{ question.id }}"
+              onclick="deleteOptions('{{ question.id }}')"
+            >
+              선택지 삭제
+            </button>
+            <button
               class="btn btn-primary updateQuestion mt-2"
               data-question-id="{{ question.id }}"
+              onclick="updateQuestion('{{ question.id }}')"
             >
               문제 수정
             </button>
             <button
               class="btn btn-danger deleteQuestion mt-2"
               data-question-id="{{ question.id }}"
+              onclick="deleteQuestion('{{ question.id }}')"
             >
               문제 삭제
             </button>
@@ -88,168 +103,168 @@
     </div>
 
     <script>
-      // 퀴즈 제목 수정 API 호출
-      document
-        .getElementById("updateQuiz")
-        .addEventListener("click", async () => {
-          const quizTitle = document.getElementById("quizTitle").value;
+      // 퀴즈 제목 수정
+      function updateQuiz() {
+        const quizTitle = document.getElementById("quizTitle").value;
 
-          if (!quizTitle) {
-            alert("퀴즈 제목을 입력하세요.");
-            return;
-          }
+        if (!quizTitle) {
+          alert("퀴즈 제목을 입력하세요.");
+          return;
+        }
 
-          try {
-            const response = await fetch(`/quiz/update/{{ quiz.id }}`, {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ title: quizTitle }),
-            });
-
+        fetch(`/quiz/update/{{ quiz.id }}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ title: quizTitle }),
+        })
+          .then((response) => {
             if (response.ok) {
               alert("퀴즈 제목이 성공적으로 수정되었습니다.");
             } else {
-              const errorData = await response.json();
-              alert(`퀴즈 제목 수정 실패: ${errorData.detail}`);
+              return response.json().then((errorData) => {
+                alert(`퀴즈 제목 수정 실패: ${errorData.detail}`);
+              });
             }
-          } catch (error) {
+          })
+          .catch((error) => {
             console.error("퀴즈 제목 수정 요청 중 오류 발생:", error);
             alert("퀴즈 제목 수정 요청 중 오류가 발생했습니다.");
-          }
-        });
+          });
+      }
 
-      // 문제 수정 API 호출
-      document.querySelectorAll(".updateQuestion").forEach((button) => {
-        button.addEventListener("click", async () => {
-          const questionId = button.dataset.questionId;
-          const questionText = document.querySelector(
+      // 문제 수정
+      function updateQuestion(questionId) {
+        const questionText = document.querySelector(
+          `.question-text[data-question-id="${questionId}"]`
+        ).value;
+
+        const options = [];
+        document
+          .querySelectorAll(
             `.question-text[data-question-id="${questionId}"]`
-          ).value;
-
-          const options = [];
-          document
-            .querySelectorAll(
-              `.option-text[data-option-id][data-question-id="${questionId}"]`
-            )
-            .forEach((input) => {
-              const isCorrect =
-                input.nextElementSibling.classList.contains("btn-success");
-              options.push({
-                id: input.dataset.optionId,
-                text: input.value,
-                is_correct: isCorrect,
-              });
+          )[0]
+          .closest(".card-body")
+          .querySelectorAll(".option-text")
+          .forEach((input) => {
+            const isCorrect =
+              input.nextElementSibling.classList.contains("btn-success");
+            options.push({
+              text: input.value,
+              is_correct: isCorrect,
             });
+          });
 
-          if (!questionText) {
-            alert("문제 내용을 입력하세요.");
-            return;
-          }
+        if (!questionText) {
+          alert("문제 내용을 입력하세요.");
+          return;
+        }
 
-          if (options.length < 2) {
-            alert("선택지는 최소 2개 이상이어야 합니다.");
-            return;
-          }
+        if (options.length < 2) {
+          alert("선택지는 최소 2개 이상이어야 합니다.");
+          return;
+        }
 
-          if (!options.some((option) => option.is_correct)) {
-            alert("최소 1개의 정답을 지정해야 합니다.");
-            return;
-          }
-
-          if (!confirm("정말로 이 문제를 수정하시겠습니까?")) {
-            return;
-          }
-
-          try {
-            const response = await fetch(
-              `/quiz/update/question/${questionId}`,
-              {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  text: questionText,
-                  options: options,
-                }),
-              }
-            );
-
+        if (!options.some((option) => option.is_correct)) {
+          alert("최소 1개의 정답을 지정해야 합니다.");
+          return;
+        }
+        // console.log(questionText, options);
+        fetch(`/quiz/update/question/${questionId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text: questionText,
+            options: options,
+          }),
+        })
+          .then((response) => {
             if (response.ok) {
               alert("문제가 성공적으로 수정되었습니다.");
             } else {
-              const errorData = await response.json();
-              alert(`문제 수정 실패: ${errorData.detail}`);
+              return response.json().then((errorData) => {
+                alert(`문제 수정 실패: ${errorData.detail}`);
+              });
             }
-          } catch (error) {
+          })
+          .catch((error) => {
             console.error("문제 수정 요청 중 오류 발생:", error);
             alert("문제 수정 요청 중 오류가 발생했습니다.");
-          }
-        });
-      });
+          });
+      }
 
-      // 문제 삭제 API 호출
-      document.querySelectorAll(".deleteQuestion").forEach((button) => {
-        button.addEventListener("click", async () => {
-          const questionId = button.dataset.questionId;
+      // 문제 삭제
+      function deleteQuestion(questionId) {
+        if (!confirm("정말로 이 문제를 삭제하시겠습니까?")) {
+          return;
+        }
 
-          if (!confirm("정말로 이 문제를 삭제하시겠습니까?")) {
-            return;
-          }
-
-          try {
-            const response = await fetch(
-              `/quiz/delete/question/${questionId}`,
-              {
-                method: "DELETE",
-              }
-            );
-
+        fetch(`/quiz/delete/question/${questionId}`, {
+          method: "DELETE",
+        })
+          .then((response) => {
             if (response.ok) {
               alert("문제가 성공적으로 삭제되었습니다.");
               location.reload(); // 페이지 새로고침
             } else {
-              const errorData = await response.json();
-              alert(`문제 삭제 실패: ${errorData.detail}`);
+              return response.json().then((errorData) => {
+                alert(`문제 삭제 실패: ${errorData.detail}`);
+              });
             }
-          } catch (error) {
+          })
+          .catch((error) => {
             console.error("문제 삭제 요청 중 오류 발생:", error);
             alert("문제 삭제 요청 중 오류가 발생했습니다.");
-          }
-        });
-      });
-
-      // 정답 버튼 토글
-      document.addEventListener("click", (event) => {
-        if (event.target.classList.contains("mark-correct")) {
-          event.target.classList.toggle("btn-success");
-          event.target.classList.toggle("btn-outline-secondary");
-          event.target.textContent = event.target.classList.contains(
-            "btn-success"
-          )
-            ? "정답 (선택됨)"
-            : "정답";
-        }
-      });
+          });
+      }
 
       // 선택지 추가
-      document.querySelectorAll(".addOption").forEach((button) => {
-        button.addEventListener("click", () => {
-          const questionId = button.dataset.questionId;
-          const optionsContainer = button.previousElementSibling;
-          const optionGroup = document.createElement("div");
-          optionGroup.className = "input-group mb-2";
+      function addOption(questionId) {
+        const optionsContainer = document.querySelector(
+          `.addOption[data-question-id="${questionId}"]`
+        ).previousElementSibling;
 
-          optionGroup.innerHTML = `
-            <input type="text" class="form-control option-text" placeholder="선택지 내용" />
-            <button class="btn btn-outline-secondary mark-correct" type="button">정답</button>
-          `;
+        const optionGroup = document.createElement("div");
+        optionGroup.className = "input-group mb-2";
 
-          optionsContainer.appendChild(optionGroup);
-        });
-      });
+        optionGroup.innerHTML = `
+          <input type="text" class="form-control option-text" placeholder="선택지 내용" />
+          <button class="btn btn-outline-secondary mark-correct" type="button" onclick="toggleCorrect(this)">정답</button>
+        `;
+
+        optionsContainer.appendChild(optionGroup);
+      }
+
+      // 선택지 삭제
+      function deleteOptions(questionId) {
+        const optionsContainer = document.querySelector(
+          `.addOption[data-question-id="${questionId}"]`
+        ).previousElementSibling;
+
+        const optionGroups = optionsContainer.querySelectorAll(".input-group");
+
+        if (optionGroups.length > 2) {
+          // 두 번째 이후의 선택지 삭제
+          for (let i = 2; i < optionGroups.length; i++) {
+            optionGroups[i].remove();
+          }
+          alert("두 번째 이후의 선택지가 삭제되었습니다.");
+        } else {
+          alert("선택지는 최소 2개 이상이어야 합니다.");
+        }
+      }
+
+      // 정답 버튼 토글
+      function toggleCorrect(button) {
+        button.classList.toggle("btn-success");
+        button.classList.toggle("btn-outline-secondary");
+        button.textContent = button.classList.contains("btn-success")
+          ? "정답 (선택됨)"
+          : "정답";
+      }
     </script>
   </body>
 </html>

@@ -18,7 +18,11 @@
       <!-- 퀴즈 선택 -->
       <div class="mb-3">
         <label class="form-label">퀴즈 선택</label>
-        <select id="quizSelect" class="form-select">
+        <select
+          id="quizSelect"
+          class="form-select"
+          onchange="toggleQuestionSection()"
+        >
           <option value="" disabled selected>퀴즈를 선택하세요</option>
           {% for quiz in quizzes %}
           <option value="{{ quiz.id }}">{{ quiz.title }}</option>
@@ -56,6 +60,7 @@
             <button
               class="btn btn-outline-secondary mark-correct"
               type="button"
+              onclick="toggleCorrect(event)"
             >
               정답
             </button>
@@ -69,19 +74,28 @@
             <button
               class="btn btn-outline-secondary mark-correct"
               type="button"
+              onclick="toggleCorrect(event)"
             >
               정답
             </button>
           </div>
         </div>
         <!-- 선택지 추가 버튼 -->
-        <button id="addOption" class="btn btn-secondary mb-3">
+        <button
+          id="addOption"
+          class="btn btn-secondary mb-3"
+          onclick="addOption()"
+        >
           선택지 추가
         </button>
 
         <!-- 문제 추가 버튼 -->
         <div class="d-grid">
-          <button id="submitQuestion" class="btn btn-success mt-3">
+          <button
+            id="submitQuestion"
+            class="btn btn-success mt-3"
+            onclick="submitQuestion()"
+          >
             문제 추가
           </button>
         </div>
@@ -121,7 +135,12 @@
             >
               닫기
             </button>
-            <button id="createQuiz" type="button" class="btn btn-primary">
+            <button
+              id="createQuiz"
+              type="button"
+              class="btn btn-primary"
+              onclick="createQuiz()"
+            >
               생성
             </button>
           </div>
@@ -130,158 +149,117 @@
     </div>
 
     <script>
-      // 퀴즈 생성 API 호출
-      document
-        .getElementById("createQuiz")
-        .addEventListener("click", async () => {
-          const quizTitle = document.getElementById("quizTitle").value;
+      // 퀴즈 생성
+      async function createQuiz() {
+        const quizTitle = document.getElementById("quizTitle").value;
 
-          if (!quizTitle) {
-            alert("퀴즈 제목을 입력하세요.");
-            return;
-          }
+        if (!quizTitle) {
+          alert("퀴즈 제목을 입력하세요.");
+          return;
+        }
 
-          try {
-            const response = await fetch("/quiz/create", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ title: quizTitle }),
-            });
-
-            if (response.ok) {
-              const newQuiz = await response.json();
-
-              // 퀴즈 셀렉트박스에 추가
-              const quizSelect = document.getElementById("quizSelect");
-              const option = document.createElement("option");
-              option.value = newQuiz.id;
-              option.textContent = newQuiz.title;
-              quizSelect.appendChild(option);
-
-              // 모달 닫기 및 초기화
-              document.getElementById("quizTitle").value = "";
-              const quizModalElement = document.getElementById("quizModal");
-              const quizModal =
-                bootstrap.Modal.getInstance(quizModalElement) ||
-                new bootstrap.Modal(quizModalElement);
-              quizModal.hide();
-
-              alert("퀴즈가 성공적으로 생성되었습니다.");
-            } else {
-              const errorData = await response.json();
-              alert(`퀴즈 생성 실패: ${errorData.detail}`);
-            }
-          } catch (error) {
-            console.error("퀴즈 생성 요청 중 오류 발생:", error);
-            alert("퀴즈 생성 요청 중 오류가 발생했습니다.");
-          }
-        });
-
-      // 문제 추가 API 호출
-      document
-        .getElementById("submitQuestion")
-        .addEventListener("click", async () => {
-          const quizSelect = document.getElementById("quizSelect");
-          const quizId = quizSelect.value;
-
-          if (!quizId) {
-            alert("퀴즈를 선택하세요.");
-            return;
-          }
-
-          const questionText = document.getElementById("questionText").value;
-          if (!questionText) {
-            alert("문제 내용을 입력하세요.");
-            return;
-          }
-
-          const options = [];
-          document.querySelectorAll(".option-text").forEach((input) => {
-            const isCorrect =
-              input.nextElementSibling.classList.contains("btn-success");
-            options.push({ text: input.value, is_correct: isCorrect });
+        try {
+          const response = await fetch("/quiz/create", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ title: quizTitle }),
           });
 
-          if (options.length < 2) {
-            alert("선택지는 최소 2개 이상이어야 합니다.");
-            return;
-          }
+          if (response.ok) {
+            const newQuiz = await response.json();
 
-          if (!options.some((option) => option.is_correct)) {
-            alert("최소 1개의 정답을 지정해야 합니다.");
-            return;
-          }
-          console.log(
-            JSON.stringify({
-              quiz_id: quizId, // quiz_id 추가
-              text: questionText,
-              options: options,
-            })
-          );
-          try {
-            // quiz_id를 요청 본문에 포함
-            const response = await fetch(`/quiz/create/question`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                quiz_id: quizId, // quiz_id 추가
-                text: questionText,
-                options: options,
-              }),
-            });
+            // 퀴즈 셀렉트박스에 추가
+            const quizSelect = document.getElementById("quizSelect");
+            const option = document.createElement("option");
+            option.value = newQuiz.id;
+            option.textContent = newQuiz.title;
+            quizSelect.appendChild(option);
 
-            if (response.ok) {
-              alert("문제가 성공적으로 추가되었습니다.");
-              document.getElementById("questionText").value = "";
-              document.getElementById("optionsContainer").innerHTML = `
-              <label class="form-label">선택지</label>
-              <div class="input-group mb-2">
-                <input type="text" class="form-control option-text" placeholder="선택지 내용" />
-                <button class="btn btn-outline-secondary mark-correct" type="button">정답</button>
-              </div>
-            `;
-            } else {
-              const errorData = await response.json();
-              alert(`문제 추가 실패: ${errorData.detail}`);
-            }
-          } catch (error) {
-            console.error("문제 추가 요청 중 오류 발생:", error);
-            alert("문제 추가 요청 중 오류가 발생했습니다.");
+            // 모달 닫기 및 초기화
+            document.getElementById("quizTitle").value = "";
+            const quizModalElement = document.getElementById("quizModal");
+            const quizModal =
+              bootstrap.Modal.getInstance(quizModalElement) ||
+              new bootstrap.Modal(quizModalElement);
+            quizModal.hide();
+
+            alert("퀴즈가 성공적으로 생성되었습니다.");
+          } else {
+            const errorData = await response.json();
+            alert(`퀴즈 생성 실패: ${errorData.detail}`);
           }
+        } catch (error) {
+          console.error("퀴즈 생성 요청 중 오류 발생:", error);
+          alert("퀴즈 생성 요청 중 오류가 발생했습니다.");
+        }
+      }
+
+      // 문제 추가
+      async function submitQuestion() {
+        const quizSelect = document.getElementById("quizSelect");
+        const quizId = quizSelect.value;
+
+        if (!quizId) {
+          alert("퀴즈를 선택하세요.");
+          return;
+        }
+
+        const questionText = document.getElementById("questionText").value;
+        if (!questionText) {
+          alert("문제 내용을 입력하세요.");
+          return;
+        }
+
+        const options = [];
+        document.querySelectorAll(".option-text").forEach((input) => {
+          const isCorrect =
+            input.nextElementSibling.classList.contains("btn-success");
+          options.push({ text: input.value, is_correct: isCorrect });
         });
 
-      // 정답 버튼 토글
-      document.addEventListener("click", (event) => {
-        if (event.target.classList.contains("mark-correct")) {
-          event.target.classList.toggle("btn-success");
-          event.target.classList.toggle("btn-outline-secondary");
-          event.target.textContent = event.target.classList.contains(
-            "btn-success"
-          )
-            ? "정답 (선택됨)"
-            : "정답";
+        if (options.length < 2) {
+          alert("선택지는 최소 2개 이상이어야 합니다.");
+          return;
         }
-      });
 
-      // 퀴즈 선택 시 문제 추가 섹션 표시
-      document.getElementById("quizSelect").addEventListener("change", () => {
-        const quizSelect = document.getElementById("quizSelect");
-        const questionSection = document.getElementById("questionSection");
-
-        if (quizSelect.value) {
-          questionSection.style.display = "block"; // 문제 추가 섹션 표시
-        } else {
-          questionSection.style.display = "none"; // 문제 추가 섹션 숨기기
+        if (!options.some((option) => option.is_correct)) {
+          alert("최소 1개의 정답을 지정해야 합니다.");
+          return;
         }
-      });
 
-      // 문제 선택지 추가
-      document.getElementById("addOption").addEventListener("click", () => {
+        try {
+          const response = await fetch(`/quiz/create/question`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              quiz_id: quizId,
+              text: questionText,
+              options: options,
+            }),
+          });
+
+          if (response.ok) {
+            alert("문제가 성공적으로 추가되었습니다.");
+            resetOptions(); // 선택지 리셋
+            document.getElementById("questionText").value = "";
+          } else {
+            const errorData = await response.json();
+            alert(`문제 추가 실패: ${errorData.detail}`);
+          }
+        } catch (error) {
+          console.error("문제 추가 요청 중 오류 발생:", error);
+          alert("문제 추가 요청 중 오류가 발생했습니다.");
+        }
+      }
+
+      // 선택지 추가
+      function addOption() {
         const optionsContainer = document.getElementById("optionsContainer");
+
         const optionGroup = document.createElement("div");
         optionGroup.className = "input-group mb-2";
 
@@ -291,7 +269,53 @@
         `;
 
         optionsContainer.appendChild(optionGroup);
-      });
+      }
+
+      // 선택지 리셋
+      function resetOptions() {
+        const optionsContainer = document.getElementById("optionsContainer");
+        optionsContainer.innerHTML = "";
+
+        for (let i = 0; i < 2; i++) {
+          const optionGroup = document.createElement("div");
+          optionGroup.className = "input-group mb-2";
+
+          optionGroup.innerHTML = `
+            <input type="text" class="form-control option-text" placeholder="선택지 내용" />
+            <button class="btn btn-outline-secondary mark-correct" type="button" onclick="toggleCorrect(event)">정답</button>
+          `;
+
+          optionsContainer.appendChild(optionGroup);
+        }
+      }
+
+      // 정답 버튼 토글
+      function toggleCorrect(event) {
+        if (event.target.classList.contains("mark-correct")) {
+          event.target.classList.toggle("btn-success");
+          event.target.classList.toggle("btn-outline-secondary");
+          event.target.textContent = event.target.classList.contains(
+            "btn-success"
+          )
+            ? "정답 (선택됨)"
+            : "정답";
+        }
+      }
+
+      // 문제 추가 섹션 표시
+      function toggleQuestionSection() {
+        const quizSelect = document.getElementById("quizSelect");
+        const questionSection = document.getElementById("questionSection");
+
+        if (quizSelect.value) {
+          questionSection.style.display = "block";
+        } else {
+          questionSection.style.display = "none";
+        }
+      }
+
+      // 초기 선택지 리셋
+      // resetOptions();
     </script>
   </body>
 </html>
