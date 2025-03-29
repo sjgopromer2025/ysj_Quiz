@@ -6,6 +6,7 @@ from alembic import context
 # Import your Base object
 from app.db.connection import Base, DATABASE_URL
 from app.models.member import Member
+from app.models.quiz import Quiz, Question, Option
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

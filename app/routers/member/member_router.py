@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 from app.utils.template_loader import templates, get_template_path
 from app.utils.jwt_utils import create_access_token
 
+from app.schemas.member import MemberCreate, MemberResponse
+
 router = APIRouter(prefix="/member", tags=["Member"])
 
 
@@ -35,25 +37,21 @@ async def register(request: Request):
     return templates.TemplateResponse(template_path, {"request": request})
 
 
-@router.post("/create", response_class=HTMLResponse)
+# 멤버 생성
+@router.post("/create", response_class=MemberResponse)
 async def member_create(
     request: Request,
-    username: str = Form(...),
-    password: str = Form(...),
-    # email: str = Form(...),
-    user_type: str = Form(...),
-    master_key: str = Form(None),  # 관리자가 아닌 경우 입력 안 해도 됨
+    member_data: MemberCreate = Depends(MemberCreate.as_form),
     member_service: MemberService = Depends(get_member_service),
     db: Session = Depends(get_db),
 ):
-
+    # 유효성 검사 및 회원 생성 로직
     result = member_service.create_member(
         request=request,
-        username=username,
-        password=password,
-        # email=email,
-        user_type=user_type,
-        master_key=master_key,
+        username=member_data.username,
+        password=member_data.password,
+        user_type=member_data.user_type,
+        master_key=member_data.master_key,
         db=db,
     )
 
@@ -67,6 +65,7 @@ async def member_create(
     )
 
 
+# 로그인
 @router.post("/login", response_class=JSONResponse)
 async def login(
     request: Request,
@@ -106,6 +105,7 @@ async def login(
     return response
 
 
+# 로그아웃
 @router.delete("/logout", response_class=JSONResponse)
 async def logout(request: Request):
     # 응답 객체 생성
