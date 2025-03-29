@@ -19,7 +19,7 @@ from app.schemas.quiz import (
 from app.services.quiz.quiz_service import QuizService
 from app.db.connection import get_db
 from app.utils.template_loader import templates, get_template_path
-from app.utils.session_utils import get_session, set_session
+from app.utils.session_utils import get_session, set_session, delete_session
 from app.schemas.quiz import QuizSubmissionRequest, QuizSubmissionResponse
 
 router = APIRouter(prefix="/quiz", tags=["Quiz"])
@@ -202,8 +202,7 @@ async def get_quiz_detail(
 
         # 세션 데이터 확인
         quiz_state = get_session(request, session_key)
-        # print("세션 데이터:", quiz_state)  # 디버깅용 출력
-        if not quiz_state:
+        if not quiz_state or quiz_state.quiz_id is None:
             # 세션에 데이터가 없으면 새로 생성
             quiz = quiz_service.get_quiz_detail_suffle(quiz_id, db)
             quiz_state = {
@@ -286,9 +285,9 @@ async def submit_quiz(
     quiz_state = get_session(request, session_key)
     if not quiz_state:
         raise HTTPException(status_code=400, detail="퀴즈 상태가 유효하지 않습니다.")
-
     # 답안 제출 및 결과 계산
     result = quiz_service.submit_quiz_answers(quiz_id, submission.answers, user, db)
+    # print("제출 결과:", result)
 
     # 제출 데이터를 저장
     try:
@@ -297,6 +296,9 @@ async def submit_quiz(
         raise HTTPException(status_code=500, detail=f"퀴즈 제출 저장 실패: {str(e)}")
 
     # 제출 후 세션 데이터 삭제
-    set_session(request, response, session_key, None)
+
+    # 세션 데이터 삭제
+    delete_session(request, key=session_key)
+    # print("Session after deletion:", get_session(request, session_key))  # 디버깅용 출력
 
     return result

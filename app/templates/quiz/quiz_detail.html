@@ -216,11 +216,14 @@
       }
 
       // 페이지 이동 시 상태 저장
-      window.addEventListener("beforeunload", (event) => {
+      function handleBeforeUnload(event) {
         saveQuizState(); // 선택 상태 저장
         event.preventDefault();
         event.returnValue = ""; // 브라우저에서 경고 메시지를 표시
-      });
+      }
+
+      // 이벤트 리스너 등록
+      window.addEventListener("beforeunload", handleBeforeUnload);
 
       // Form submission handler
       document
@@ -248,6 +251,7 @@
             })
             .then((data) => {
               alert(data.message + `\n점수: ${data.score}%`);
+              window.removeEventListener("beforeunload", handleBeforeUnload); // 이벤트 리스너 제거
               window.location.href = "/quiz/list"; // 제출 후 퀴즈 목록으로 이동
             })
             .catch((error) => {

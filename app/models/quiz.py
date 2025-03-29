@@ -50,7 +50,9 @@ class QuizSubmission(Base):
     __tablename__ = "quiz_submission"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, nullable=False)  # 사용자 ID
+    username = Column(
+        String(150), ForeignKey("member.username", ondelete="CASCADE")
+    )  # 사용자 username 참조
     quiz_id = Column(Integer, ForeignKey("quiz.id", ondelete="CASCADE"))
     score = Column(Float, nullable=False)  # 점수
     submitted_at = Column(DateTime, server_default=func.now())  # 제출 시간
@@ -60,6 +62,7 @@ class QuizSubmission(Base):
     answers = relationship(
         "QuizSubmissionAnswer", back_populates="submission", cascade="all, delete"
     )
+    member = relationship("Member", backref="submissions")  # Member와 관계 설정
 
 
 class QuizSubmissionAnswer(Base):

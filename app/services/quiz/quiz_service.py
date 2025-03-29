@@ -4,7 +4,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
 from typing import List
 from app.models.quiz import Quiz, Question, Option
-from app.schemas.quiz import QuizCreate, QuestionCreate, QuestionUpdate, QuizResponse
+from app.schemas.quiz import (
+    QuizCreate,
+    QuestionCreate,
+    QuestionUpdate,
+    QuizResponse,
+    QuizSubmissionAnswerRequest,
+)
 from app.models.quiz import (
     QuizSubmission,
     QuizSubmissionAnswer,
@@ -242,13 +248,10 @@ class QuizService:
         user: dict,
         db: Session,
     ) -> dict:
-        from app.models.quiz import Question, Option  # Import inside the method
-
         """퀴즈 답안 제출 및 채점"""
         quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
         if not quiz:
             raise ValueError("퀴즈를 찾을 수 없습니다.")
-
         # 정답 체크
         correct_count = 0
         total_questions = len(answers)
@@ -269,7 +272,11 @@ class QuizService:
                 correct_count += 1
 
         # 점수 계산
-        score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
+        score = (
+            round((correct_count / total_questions) * 100, 2)
+            if total_questions > 0
+            else 0
+        )
 
         return {
             "message": "퀴즈가 성공적으로 제출되었습니다.",
@@ -282,32 +289,46 @@ class QuizService:
         self,
         quiz_id: int,
         user: dict,
-        answers: List[dict],
+        answers: List[QuizSubmissionAnswerRequest],
         result: dict,
         db: Session,
     ) -> None:
         """퀴즈 제출 데이터 저장"""
         try:
-            # 퀴즈 제출 데이터 생성
             submission = QuizSubmission(
-                user_id=user.get("id"),
+                username=user["username"],
                 quiz_id=quiz_id,
                 score=result["score"],
             )
+
             db.add(submission)
             db.commit()
             db.refresh(submission)
+            # 디버깅용 출력
+            # print("Submission ID:", submission.id)
+            # print("Answers:", answers)
 
             # 각 답안 저장
             for answer in answers:
+                # Pydantic 객체에서 데이터 추출
+                if isinstance(answer, QuizSubmissionAnswerRequest):
+                    question_id = answer.question_id
+                    selected_option_id = answer.selected_option_id
+                else:
+                    # 만약 answer가 딕셔너리라면
+                    question_id = answer["question_id"]
+                    selected_option_id = answer["selected_option_id"]
+
                 submission_answer = QuizSubmissionAnswer(
                     submission_id=submission.id,
-                    question_id=answer["question_id"],
-                    selected_option_id=answer["selected_option_id"],
+                    question_id=question_id,
+                    selected_option_id=selected_option_id,
                 )
                 db.add(submission_answer)
 
+            # 최종 커밋
             db.commit()
+            return
         except SQLAlchemyError as e:
             db.rollback()
             raise e
