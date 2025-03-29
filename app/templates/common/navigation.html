@@ -1,0 +1,52 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand" href="/">퀴즈 시스템</a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav ms-auto">
+        {% if user %}
+        <!-- 로그인한 경우 -->
+        {% if user.is_admin %}
+        <!-- 관리자일 경우 -->
+        <li class="nav-item">
+          <a class="nav-link" href="/quiz/list">퀴즈 목록</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/quiz/create">퀴즈 생성</a>
+        </li>
+        {% else %}
+        <!-- 일반 사용자일 경우 -->
+        <li class="nav-item">
+          <a class="nav-link" href="/quiz/list">퀴즈 목록</a>
+        </li>
+        {% endif %}
+        <li class="nav-item">
+          <a class="nav-link" href="/logout">로그아웃</a>
+        </li>
+        {% else %}
+        <li class="nav-item">
+          <a class="nav-link" href="/quiz/list">퀴즈 목록</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/quiz/create">퀴즈 생성</a>
+        </li>
+        <!-- 로그인하지 않은 경우 -->
+        <li class="nav-item">
+          <a class="nav-link" href="/member/register">회원가입</a>
+        </li>
+        <li class="nav-item">
+          <a
+            class="nav-link"
+            href="#"
+            data-bs-toggle="modal"
+            data-bs-target="#loginModal"
+            >로그인</a
+          >
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/logout">로그아웃</a>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
