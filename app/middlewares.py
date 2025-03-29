@@ -24,7 +24,12 @@ async def restrict_non_authenticated_users(request: Request, call_next):
     """로그인하지 않은 사용자가 특정 경로에 접근하지 못하도록 제한"""
     await set_user_from_token(request)
 
-    restricted_paths = ["/quiz/detail"]
+    restricted_paths = [
+        "/quiz/detail",
+        "/quiz/list",
+        "/quiz/submit",
+        "/quiz/attempt",
+    ]
     if any(request.url.path.startswith(path) for path in restricted_paths):
         user = request.state.user
         if not user:  # 로그인하지 않은 경우
