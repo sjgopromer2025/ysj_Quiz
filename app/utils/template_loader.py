@@ -1,6 +1,5 @@
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
-import os
 
 # 템플릿 디렉토리 경로 설정
 templates = Jinja2Templates(directory="app/templates")

@@ -17,7 +17,7 @@
         ></button>
       </div>
       <div class="modal-body">
-        <form method="POST" action="/login">
+        <form id="loginForm">
           <div class="mb-3">
             <label for="login-username" class="form-label">사용자 이름</label>
             <input
@@ -38,9 +38,37 @@
               required
             />
           </div>
-          <button type="submit" class="btn btn-primary w-100">로그인</button>
+          <button type="button" class="btn btn-primary w-100" onclick="login()">
+            로그인
+          </button>
         </form>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+  async function login() {
+    const username = document.getElementById("login-username").value;
+    const password = document.getElementById("login-password").value;
+    try {
+      const response = await fetch("/member/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (response.ok) {
+        alert(`${username}님! 환영합니다.`);
+        window.location.href = "/"; // 로그아웃 후 메인 페이지로 이동
+      } else {
+        alert("로그인 실패! 아이디와 비밀번호를 확인하세요.");
+      }
+    } catch (error) {
+      console.error("로그인 요청 중 오류 발생:", error);
+      alert("로그인 요청 중 오류가 발생했습니다.");
+    }
+  }
+</script>

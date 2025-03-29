@@ -26,6 +26,15 @@
     <div class="container mt-5">
       <h2 class="text-center">회원가입</h2>
       <form method="POST" action="/member/create">
+        {% if errors %}
+        <div class="alert alert-danger">
+          <ul>
+            {% for error in errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
         <div class="mb-3">
           <label for="username" class="form-label">사용자 이름</label>
           <input
@@ -33,19 +42,10 @@
             class="form-control"
             id="username"
             name="username"
+            value="{{ username | default('') }}"
             required
           />
         </div>
-        <!-- <div class="mb-3">
-          <label for="email" class="form-label">이메일</label>
-          <input
-            type="email"
-            class="form-control"
-            id="email"
-            name="email"
-            required
-          />
-        </div> -->
         <div class="mb-3">
           <label for="password" class="form-label">비밀번호</label>
           <input
@@ -53,8 +53,11 @@
             class="form-control"
             id="password"
             name="password"
+            value="{{ password | default('') }}"
+            minlength="6" 
             required
           />
+          <small class="form-text text-muted">비밀번호는 6자 이상이어야 합니다.</small>
         </div>
         <div class="mb-3">
           <label for="user_type" class="form-label">사용자 유형</label>
@@ -62,22 +65,21 @@
             class="form-select"
             id="user_type"
             name="user_type"
-            onchange="toggleMasterKey()"
+            onchange="toggleMasterKey()"  <!-- 사용자 유형 변경 시 마스터 키 필드 표시 -->
             required
           >
-            <option value="user">일반 사용자</option>
-            <option value="admin">관리자</option>
+            <option value="user" {{ 'selected' if user_type == 'user' else '' }}>일반 사용자</option>
+            <option value="admin" {{ 'selected' if user_type == 'admin' else '' }}>관리자</option>
           </select>
         </div>
         <div class="mb-3" id="master_key_field" style="display: none">
-          <label for="master_key" class="form-label"
-            >마스터 키 (임시 : secret1234)
-          </label>
+          <label for="master_key" class="form-label">마스터 키 (임시키: secret1234)</label>
           <input
             type="password"
             class="form-control"
             id="master_key"
             name="master_key"
+            value="{{ master_key | default('') }}"
           />
         </div>
         <button type="submit" class="btn btn-primary">가입하기</button>

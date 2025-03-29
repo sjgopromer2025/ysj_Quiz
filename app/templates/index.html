@@ -11,7 +11,11 @@
     />
   </head>
   <body>
-    {% include 'common/navigation.html' %}
+    {% if message %}
+    <script>
+      alert("{{ message }}");
+    </script>
+    {% endif %} {% include 'common/navigation.html' %}
     <div class="container text-center mt-5">
       <h1>퀴즈 시스템에 오신 것을 환영합니다!</h1>
       <p>퀴즈를 풀거나 새로운 퀴즈를 생성할 수 있습니다.</p>

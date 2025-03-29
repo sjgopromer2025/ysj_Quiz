@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from app.db.connetion import Base  # 기존 Base를 가져옴
+from app.db.connection import Base  # 기존 Base를 가져옴
 
 
 # 멤버 모델 클래스 정의

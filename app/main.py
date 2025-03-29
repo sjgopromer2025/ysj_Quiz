@@ -1,11 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from starlette.middleware.cors import CORSMiddleware
 from app.routers import router as api_router  # 중앙 관리 라우터
-from app.db.connetion import engine, Base  # DB 연결
-
+from app.db.connection import engine, Base  # DB 연결
+from app.utils.jwt_utils import decode_access_token
 import logging
 
-# SQLAlchemy 로거 비활성화
+
+# SQLAlchemy 엔진 로그 수준 설정
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
 
@@ -18,6 +20,40 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(docs_url="/documentation", redoc_url=None, lifespan=lifespan)
+
+
+@app.middleware("http")
+async def add_user_to_request(request: Request, call_next):
+    """JWT를 검증하고 사용자 정보를 요청에 추가"""
+    token = request.cookies.get("access_token")
+    if token:
+        user = decode_access_token(token)
+        request.state.user = user
+    else:
+        request.state.user = None
+
+    response = await call_next(request)
+    return response
+
+
+@app.middleware("http")
+async def restrict_authenticated_users(request: Request, call_next):
+    """로그인된 사용자가 특정 경로에 접근하지 못하도록 제한"""
+    token = request.cookies.get("access_token")
+    if token:
+        user = decode_access_token(token)
+        request.state.user = user
+    else:
+        request.state.user = None
+
+    restricted_paths = ["/member/register", "/member/create"]
+    if request.url.path in restricted_paths:
+        if request.state.user:  # 로그인된 사용자라면
+            return RedirectResponse(url="/", status_code=302)
+
+    response = await call_next(request)
+    return response
+
 
 app.add_middleware(
     CORSMiddleware,
