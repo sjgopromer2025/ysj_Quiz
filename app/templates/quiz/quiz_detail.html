@@ -72,20 +72,31 @@
     <script>
       // JSON 데이터를 안전하게 문자열로 변환하여 JavaScript에서 사용
       const questions = JSON.parse(`{{ questions | tojson | safe }}`);
+      const selectedOptions = JSON.parse(
+        `{{ selected_options | tojson | safe }}`
+      ); // 서버에서 전달된 선택 상태
       let pageSize = questions.length; // 기본 페이지 크기
-      const selectedOptions = {}; // 선택 상태를 저장하는 객체
+      let currentPage = 1; // 현재 페이지 번호
 
       // 페이지 렌더링 함수
       function renderPage() {
         const quizContainer = document.getElementById("quizContainer");
         quizContainer.innerHTML = "";
 
-        questions.forEach((question, index) => {
+        // 현재 페이지에 표시할 질문 계산
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const pageQuestions = questions.slice(startIndex, endIndex);
+
+        // 현재 페이지의 질문만 렌더링
+        pageQuestions.forEach((question, index) => {
           const questionCard = document.createElement("div");
           questionCard.className = "card mb-3";
           questionCard.innerHTML = `
             <div class="card-body">
-              <h5 class="card-title">문제 ${index + 1}: ${question.text}</h5>
+              <h5 class="card-title">문제 ${startIndex + index + 1}: ${
+            question.text
+          }</h5>
               <div>
                 ${question.options
                   .map(
@@ -129,7 +140,6 @@
       function updatePageSize() {
         const pageSizeInput = document.getElementById("pageSizeInput");
         const maxQuestions = questions.length;
-
         // 입력값 검증
         const newPageSize = parseInt(pageSizeInput.value, 10);
         if (newPageSize < 1 || newPageSize > maxQuestions) {
@@ -138,8 +148,13 @@
           return;
         }
 
-        pageSize = newPageSize; // 페이지 크기 업데이트
-        currentPage = 1; // 페이지를 처음으로 초기화
+        // 페이지 크기 업데이트
+        pageSize = newPageSize;
+
+        // 페이지를 처음으로 초기화
+        currentPage = 1;
+
+        // 페이지 다시 렌더링
         renderPage();
       }
 
@@ -169,16 +184,15 @@
       function saveQuizState() {
         const formData = new FormData(document.getElementById("quizForm"));
         const quizState = {
-          currentPage: currentPage, // 현재 페이지 번호 저장
-          selectedOptions: {}, // 선택된 옵션 저장
+          selected_options: {}, // 선택된 옵션 저장
         };
 
         // 모든 질문에 대해 선택 상태 저장
         questions.forEach((question) => {
           const selectedOption = formData.get(`question_${question.id}`);
-          quizState.selectedOptions[question.id] = selectedOption || null; // 선택하지 않은 경우 null 저장
+          quizState.selected_options[question.id] = selectedOption || null; // 선택하지 않은 경우 null 저장
         });
-
+        console.log(quizState); // 선택 상태 확인
         // 서버로 상태 저장 요청
         fetch(`/quiz/attempt/{{ quiz_id }}/save`, {
           method: "POST",
@@ -202,7 +216,45 @@
       }
 
       // 페이지 이동 시 상태 저장
-      window.addEventListener("beforeunload", saveQuizState);
+      window.addEventListener("beforeunload", (event) => {
+        saveQuizState(); // 선택 상태 저장
+        event.preventDefault();
+        event.returnValue = ""; // 브라우저에서 경고 메시지를 표시
+      });
+
+      // Form submission handler
+      document
+        .getElementById("quizForm")
+        .addEventListener("submit", (event) => {
+          event.preventDefault(); // 기본 제출 동작 방지
+
+          const answers = questions.map((question) => ({
+            question_id: question.id,
+            selected_option_id: selectedOptions[question.id] || null,
+          }));
+
+          fetch(`/quiz/submit/{{ quiz_id }}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ answers }),
+          })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error("퀴즈 제출 실패");
+              }
+              return response.json();
+            })
+            .then((data) => {
+              alert(data.message + `\n점수: ${data.score}%`);
+              window.location.href = "/quiz/list"; // 제출 후 퀴즈 목록으로 이동
+            })
+            .catch((error) => {
+              console.error(error);
+              alert("퀴즈 제출 중 오류가 발생했습니다.");
+            });
+        });
 
       // 초기 페이지 렌더링
       renderPage();

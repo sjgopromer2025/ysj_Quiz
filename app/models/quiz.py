@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float, DateTime
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from app.db.connection import Base
 
 
@@ -41,3 +42,39 @@ class Option(Base):
 
     # 관계 설정 (선택지 - 문제)
     question = relationship("Question", back_populates="options")
+
+
+class QuizSubmission(Base):
+    """퀴즈 제출 모델"""
+
+    __tablename__ = "quiz_submission"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False)  # 사용자 ID
+    quiz_id = Column(Integer, ForeignKey("quiz.id", ondelete="CASCADE"))
+    score = Column(Float, nullable=False)  # 점수
+    submitted_at = Column(DateTime, server_default=func.now())  # 제출 시간
+
+    # 관계 설정 (퀴즈 제출 - 퀴즈 / 퀴즈 제출 - 답안)
+    quiz = relationship("Quiz", backref="submissions")
+    answers = relationship(
+        "QuizSubmissionAnswer", back_populates="submission", cascade="all, delete"
+    )
+
+
+class QuizSubmissionAnswer(Base):
+    """퀴즈 제출 답안 모델"""
+
+    __tablename__ = "quiz_submission_answer"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    submission_id = Column(
+        Integer, ForeignKey("quiz_submission.id", ondelete="CASCADE")
+    )
+    question_id = Column(Integer, ForeignKey("question.id", ondelete="CASCADE"))
+    selected_option_id = Column(Integer, ForeignKey("option.id", ondelete="CASCADE"))
+
+    # 관계 설정 (퀴즈 제출 답안 - 제출 / 문제 / 선택지)
+    submission = relationship("QuizSubmission", back_populates="answers")
+    question = relationship("Question", backref="submission_answers")
+    selected_option = relationship("Option", backref="submission_answers")

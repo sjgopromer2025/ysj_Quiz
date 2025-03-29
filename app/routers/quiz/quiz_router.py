@@ -1,4 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, Request, Response
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Path,
+    Request,
+    Response,
+    Body,
+)
 from sqlalchemy.orm import Session
 from typing import List
 from fastapi.responses import HTMLResponse
@@ -11,6 +20,7 @@ from app.services.quiz.quiz_service import QuizService
 from app.db.connection import get_db
 from app.utils.template_loader import templates, get_template_path
 from app.utils.session_utils import get_session, set_session
+from app.schemas.quiz import QuizSubmissionRequest, QuizSubmissionResponse
 
 router = APIRouter(prefix="/quiz", tags=["Quiz"])
 
@@ -159,6 +169,20 @@ async def delete_quiz(
         raise HTTPException(status_code=404, detail=f"퀴즈 삭제 실패: {str(e)}")
 
 
+@router.delete("/delete/question/{question_id}")
+async def delete_question(
+    question_id: int,
+    quiz_service: QuizService = Depends(get_quiz_service),
+    db: Session = Depends(get_db),
+):
+    """문제 삭제 API"""
+    try:
+        quiz_service.delete_question(question_id, db)
+        return {"message": "문제가 성공적으로 삭제되었습니다."}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=f"문제 삭제 실패: {str(e)}")
+
+
 # 퀴즈 응시 API
 @router.get("/detail/{quiz_id}", response_class=HTMLResponse)
 async def get_quiz_detail(
@@ -178,7 +202,7 @@ async def get_quiz_detail(
 
         # 세션 데이터 확인
         quiz_state = get_session(request, session_key)
-        print("세션 데이터:", quiz_state)  # 디버깅용 출력
+        # print("세션 데이터:", quiz_state)  # 디버깅용 출력
         if not quiz_state:
             # 세션에 데이터가 없으면 새로 생성
             quiz = quiz_service.get_quiz_detail_suffle(quiz_id, db)
@@ -210,7 +234,7 @@ async def save_quiz_state(
     quiz_id: int,
     request: Request,
     response: Response,
-    quiz_state: dict,
+    quiz_state: dict = Body(...),  # Explicitly parse the incoming JSON
 ):
     """사용자가 풀고 있는 문제 상태를 세션에 저장"""
     user = request.state.user
@@ -219,20 +243,60 @@ async def save_quiz_state(
 
     # 세션 키 생성
     session_key = f"{user['username']}_quiz_{quiz_id}_state"
-    print(session_key)
+
+    # 세션 데이터 가져오기
     session_data = get_session(request, session_key) or {}
+    # print("기존 세션 데이터:", session_data)  # 디버깅용 출력
 
     # 세션 데이터가 없으면 기본값 설정
     if "quiz_id" not in session_data:
         session_data["quiz_id"] = quiz_id
         session_data["selected_options"] = {}
 
-    print(quiz_state)
     # 선택 상태 업데이트
     selected_options = quiz_state.get("selected_options", {})
+    # print("클라이언트에서 전달된 선택 상태:", selected_options)  # 디버깅용 출력
+
+    # 기존 선택 상태와 병합
     session_data["selected_options"].update(selected_options)
+    # print("업데이트된 세션 데이터:", session_data)  # 디버깅용 출력
 
     # 세션에 저장
     set_session(request, response, session_key, session_data)
 
     return {"message": "퀴즈 상태가 성공적으로 저장되었습니다."}
+
+
+@router.post("/submit/{quiz_id}", response_model=QuizSubmissionResponse)
+async def submit_quiz(
+    quiz_id: int,
+    submission: QuizSubmissionRequest,
+    request: Request,
+    response: Response,
+    quiz_service: QuizService = Depends(get_quiz_service),
+    db: Session = Depends(get_db),
+):
+    """퀴즈 답안 제출 및 채점 API"""
+    user = request.state.user
+    if not user:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+
+    # 세션에서 퀴즈 상태 가져오기
+    session_key = f"{user['username']}_quiz_{quiz_id}_state"
+    quiz_state = get_session(request, session_key)
+    if not quiz_state:
+        raise HTTPException(status_code=400, detail="퀴즈 상태가 유효하지 않습니다.")
+
+    # 답안 제출 및 결과 계산
+    result = quiz_service.submit_quiz_answers(quiz_id, submission.answers, user, db)
+
+    # 제출 데이터를 저장
+    try:
+        quiz_service.save_quiz_submission(quiz_id, user, submission.answers, result, db)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"퀴즈 제출 저장 실패: {str(e)}")
+
+    # 제출 후 세션 데이터 삭제
+    set_session(request, response, session_key, None)
+
+    return result

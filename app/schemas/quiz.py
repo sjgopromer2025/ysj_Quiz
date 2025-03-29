@@ -91,3 +91,34 @@ class QuizResponse(BaseModel):
 
     class Config:
         from_attributes = True  # 변경된 설정
+
+
+class QuizSubmissionAnswerRequest(BaseModel):
+    """퀴즈 제출 답안 요청"""
+
+    question_id: int  # 문제 ID
+    selected_option_id: int  # 사용자가 선택한 옵션 ID
+
+
+class QuizSubmissionRequest(BaseModel):
+    """퀴즈 제출 요청"""
+
+    answers: List[QuizSubmissionAnswerRequest]  # 제출된 답안 목록
+
+
+class QuizSubmissionAnswerResponse(BaseModel):
+    """퀴즈 제출 답안 응답"""
+
+    question_id: int  # 문제 ID
+    selected_option_id: int  # 사용자가 선택한 옵션 ID
+    is_correct: bool  # 정답 여부
+
+
+class QuizSubmissionResponse(BaseModel):
+    """퀴즈 제출 응답"""
+
+    message: str  # 응답 메시지
+    correct_count: int  # 정답 개수
+    total_questions: int  # 총 문제 수
+    score: float  # 점수
+    answers: Optional[List[QuizSubmissionAnswerResponse]] = None  # 각 문제의 답안 결과
