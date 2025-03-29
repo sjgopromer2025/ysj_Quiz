@@ -14,12 +14,76 @@
     {% include 'common/navigation.html' %}
     <div class="container mt-5">
       <h2>퀴즈 목록</h2>
-      <ul class="list-group">
-        <li class="list-group-item d-flex justify-content-between">
-          <span>퀴즈 제목 1</span>
-          <a href="quiz_detail.html" class="btn btn-primary">응시하기</a>
-        </li>
-      </ul>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>퀴즈 제목</th>
+            <th>문제 수</th>
+            <th>액션</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for quiz in quizzes %} {% if quiz.question_count > 0 %}
+          <tr>
+            <td>{{ quiz.title }}</td>
+            <td>{{ quiz.question_count }}</td>
+            <td>
+              <a href="/quiz/detail/{{ quiz.id }}" class="btn btn-primary"
+                >응시하기</a
+              >
+              {% if request.state.user.user_type == "admin" %}
+              <a href="/quiz/update/{{ quiz.id }}" class="btn btn-warning"
+                >수정하기</a
+              >
+              <button
+                class="btn btn-danger deleteQuiz"
+                data-quiz-id="{{ quiz.id }}"
+              >
+                삭제
+              </button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endif %} {% endfor %}
+        </tbody>
+      </table>
+      <div class="d-flex justify-content-end">
+        <label for="itemsPerPage" class="me-2">페이지 당 항목 수:</label>
+        <select id="itemsPerPage" class="form-select w-auto">
+          <option value="10">10</option>
+          <option value="30">30</option>
+          <option value="50">50</option>
+        </select>
+      </div>
     </div>
+    <script>
+      // 퀴즈 삭제 API 호출
+      document.querySelectorAll(".deleteQuiz").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const quizId = button.dataset.quizId;
+
+          if (!confirm("정말로 이 퀴즈를 삭제하시겠습니까?")) {
+            return;
+          }
+
+          try {
+            const response = await fetch(`/quiz/delete/${quizId}`, {
+              method: "DELETE",
+            });
+
+            if (response.ok) {
+              alert("퀴즈가 성공적으로 삭제되었습니다.");
+              location.reload(); // 페이지 새로고침
+            } else {
+              const errorData = await response.json();
+              alert(`퀴즈 삭제 실패: ${errorData.detail}`);
+            }
+          } catch (error) {
+            console.error("퀴즈 삭제 요청 중 오류 발생:", error);
+            alert("퀴즈 삭제 요청 중 오류가 발생했습니다.");
+          }
+        });
+      });
+    </script>
   </body>
 </html>
