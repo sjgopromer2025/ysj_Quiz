@@ -39,11 +39,15 @@ async def quiz_list_page(
     quiz_service: QuizService = Depends(get_quiz_service),
     db: Session = Depends(get_db),
 ):
-    """퀴즈 생성 페이지"""
+    """퀴즈 목록 페이지"""
+    user = request.state.user
+    if not user:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+
+    # 퀴즈 목록과 응시 여부 조회
+    quizzes = quiz_service.get_quizzes_with_attempts(user["username"], db)
     # 퀴즈 목록 조회
-    quizzes = quiz_service.get_all_quizzes_with_question_count(
-        db
-    )  # Updated service call
+    # quizzes = quiz_service.get_all_quizzes_with_question_count(db)
     # 퀴즈 목록을 템플릿에 전달
     template_path = get_template_path(base_path, "quiz_list")
     return templates.TemplateResponse(

@@ -60,6 +60,55 @@ class QuizService:
             )
         return result
 
+    def get_quizzes_with_attempts(self, username: str, db: Session):
+        """퀴즈 목록과 사용자의 응시 여부를 반환"""
+        # 퀴즈 목록 조회
+        quizzes = self.get_all_quizzes_with_question_count(db)
+
+        """사용자가 응시한 각 퀴즈의 가장 최근 제출 데이터를 조회"""
+        user_submissions = (
+            db.query(
+                QuizSubmission.quiz_id,
+                QuizSubmission.score,
+                QuizSubmission.submitted_at,
+            )
+            .filter(QuizSubmission.username == username)
+            .order_by(
+                QuizSubmission.quiz_id, QuizSubmission.submitted_at.desc()
+            )  # quiz_id별로 정렬 후 최신 데이터 우선
+            .distinct(QuizSubmission.quiz_id)  # quiz_id별로 중복 제거
+            .all()
+        )
+        print(user_submissions)
+        # user_submissions 데이터를 [{quiz_id: score}] 형식으로 변환
+        submission_scores = [
+            {submission[0]: submission[1]} for submission in user_submissions
+        ]
+
+        # 응시한 퀴즈 ID를 리스트로 추출
+        attempted_quiz_ids = {submission[0] for submission in user_submissions}
+
+        # 퀴즈 목록에 응시 여부와 점수 추가
+        quizzes_with_attempts = [
+            {
+                "id": quiz["id"],
+                "title": quiz["title"],
+                "question_count": quiz["question_count"],
+                "attempted": quiz["id"] in attempted_quiz_ids,  # 응시 여부
+                "score": next(
+                    (
+                        submission[quiz["id"]]
+                        for submission in submission_scores
+                        if quiz["id"] in submission
+                    ),
+                    None,  # 점수가 없으면 None
+                ),
+            }
+            for quiz in quizzes
+        ]
+
+        return quizzes_with_attempts
+
     def add_question_to_quiz(
         self, quiz_id: int, question_data: QuestionCreate, db: Session
     ) -> Question:

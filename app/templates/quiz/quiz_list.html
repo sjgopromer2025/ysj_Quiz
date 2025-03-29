@@ -19,7 +19,8 @@
           <tr>
             <th>퀴즈 제목</th>
             <th>문제 수</th>
-            <th>액션</th>
+            <th>응시 여부</th>
+            <th>점수</th>
           </tr>
         </thead>
         <tbody>
@@ -27,6 +28,20 @@
           <tr>
             <td>{{ quiz.title }}</td>
             <td>{{ quiz.question_count }}</td>
+            <td>
+              {% if quiz.attempted %}
+              <span class="badge bg-success">응시 완료</span>
+              {% else %}
+              <span class="badge bg-danger">미응시</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if quiz.score %}
+              <span class="badge bg-primary">점수: {{ quiz.score }}</span>
+              {% else %}
+              <span class="badge bg-danger">미응시</span>
+              {% endif %}
+            </td>
             <td>
               <a href="/quiz/detail/{{ quiz.id }}" class="btn btn-primary"
                 >응시하기</a
